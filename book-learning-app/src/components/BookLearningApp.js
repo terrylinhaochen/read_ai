@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Book, Search, Upload, ChevronRight, Send } from 'lucide-react';
 import { LearningAidCard } from './LearningAid';
+import { generateBookResponse, generateInitialBookOverview } from '../services/openai';  // Add this line
 
 const BookLearningApp = () => {
   const [selectedBook, setSelectedBook] = useState(null);
@@ -137,34 +138,52 @@ const BookLearningApp = () => {
     handleQuestionClick(topicQuestion);
   };
 
-  const handleBookSelect = (book) => {
+  const handleBookSelect = async (book) => {
     setSelectedBook(book);
-    setMessages([
-      {
-        type: 'user',
-        content: `I want to learn more about ${book.title}. What's it about?`
-      },
-      { 
-        type: 'assistant', 
-        content: book.initialResponse?.content,
-        learningAids: book.initialResponse?.learningAids,
-        prefills: book.initialResponse?.prefills
-      }
-    ]);
+    try {
+      const overview = await generateInitialBookOverview(book);
+      setMessages([
+        {
+          type: 'user',
+          content: `I want to learn more about ${book.title}. What's it about?`
+        },
+        { 
+          type: 'assistant', 
+          content: overview.content,
+          learningAids: overview.learningAids,
+          prefills: overview.prefills
+        }
+      ]);
+      // Update book topics from AI response
+      setSelectedBook(prev => ({
+        ...prev,
+        topics: overview.topics
+      }));
+    } catch (error) {
+      console.error('Error getting book overview:', error);
+      // Handle error appropriately
+    }
   };
 
-  const handleQuestionClick = (question) => {
-    const aiResponse = getAIResponse(question);
-    setMessages([
-      ...messages,
-      { type: 'user', content: question },
-      { 
-        type: 'assistant', 
-        content: aiResponse.content,
-        learningAids: aiResponse.learningAids,
-        prefills: aiResponse.prefills
-      }
-    ]);
+  const handleQuestionClick = async (question) => {
+    try {
+      const aiResponse = await generateBookResponse(selectedBook, question);
+      const parsedResponse = JSON.parse(aiResponse);
+      
+      setMessages(prev => [
+        ...prev,
+        { type: 'user', content: question },
+        { 
+          type: 'assistant', 
+          content: parsedResponse.content,
+          learningAids: parsedResponse.learningAids,
+          prefills: parsedResponse.prefills
+        }
+      ]);
+    } catch (error) {
+      console.error('Error getting AI response:', error);
+      // Handle error appropriately
+    }
   };
 
   const handleSendMessage = () => {
