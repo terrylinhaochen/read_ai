@@ -1,10 +1,101 @@
 import React, { useState } from 'react';
 import { Brain, AlertCircle, Book, ListFilter, Globe, BookOpen, ScrollText, CheckCircle2, ArrowRight } from 'lucide-react';
 
+export const LearningAidSection = ({ title, children }) => (
+  <div className="bg-white border rounded-lg p-4 my-2">
+    <h3 className="font-medium mb-3">{title}</h3>
+    {children}
+  </div>
+);
+
+export const QuizCard = ({ question, options }) => {
+  const [selectedOption, setSelectedOption] = useState(null);
+  const [showAnswer, setShowAnswer] = useState(false);
+  
+  return (
+    <div>
+      <p className="mb-3">{question}</p>
+      <div className="space-y-2">
+        {options?.map((option, idx) => (
+          <button
+            key={idx}
+            onClick={() => {
+              setSelectedOption(idx);
+              setShowAnswer(true);
+            }}
+            className={`w-full p-2 text-left rounded border ${
+              selectedOption === idx ? 'bg-blue-50 border-blue-200' : 'hover:bg-gray-50'
+            }`}
+          >
+            {option}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+};
+
+export const VocabCard = ({ term, definition }) => (
+  <div className="p-3 bg-gray-50 rounded">
+    <div className="font-medium">{term}</div>
+    <div className="text-gray-600">{definition}</div>
+  </div>
+);
+
+export const MisconceptionCard = ({ misconception, correction, explanation }) => (
+  <div className="space-y-2">
+    <div className="flex items-start gap-2">
+      <div className="text-red-500">✕</div>
+      <div>{misconception}</div>
+    </div>
+    <div className="flex items-start gap-2">
+      <div className="text-green-500">✓</div>
+      <div>{correction}</div>
+    </div>
+    {explanation && (
+      <div className="text-gray-600 mt-2">{explanation}</div>
+    )}
+  </div>
+);
+
+export const ThinkingPrompt = ({ prompt, hint }) => {
+  const [showHint, setShowHint] = useState(false);
+  return (
+    <div>
+      <p className="mb-2">{prompt}</p>
+      <button
+        onClick={() => setShowHint(!showHint)}
+        className="text-blue-500 hover:text-blue-600"
+      >
+        {showHint ? 'Hide hint' : 'Show hint'}
+      </button>
+      {showHint && (
+        <div className="mt-2 pl-3 border-l-2 border-blue-200">{hint}</div>
+      )}
+    </div>
+  );
+};
+
+export const BookTimeline = ({ events }) => (
+  <div className="space-y-4">
+    {events.map((event, index) => (
+      <div key={index} className="flex gap-4">
+        <div className="w-24 font-medium">{event.year}</div>
+        <div>
+          <div className="font-medium">{event.title}</div>
+          {event.description && (
+            <div className="text-gray-600">{event.description}</div>
+          )}
+        </div>
+      </div>
+    ))}
+  </div>
+);
+
+// Legacy support for old LearningAidCard usage
 export const LearningAidCard = ({ type, title, children, options, answer }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [showAnswer, setShowAnswer] = useState(false);
-  const [selectedOption, setSelectedOption] = useState(null);
   
   const getIcon = () => {
     switch (type) {
@@ -19,98 +110,31 @@ export const LearningAidCard = ({ type, title, children, options, answer }) => {
     }
   };
 
-  const renderContent = () => {
-    switch (type) {
-      case 'think':
-        return (
-          <div className="space-y-3">
-            <p>{children}</p>
-            <button 
-              onClick={() => setIsExpanded(!isExpanded)}
-              className="text-blue-500 hover:text-blue-600 flex items-center gap-2"
-            >
-              <ArrowRight className="w-4 h-4" />
-              {isExpanded ? 'Hide reflection prompts' : 'Show reflection prompts'}
-            </button>
-            {isExpanded && (
-              <div className="pl-4 border-l-2 border-blue-200 mt-2">
-                Start your reflection here...
-              </div>
-            )}
-          </div>
-        );
-        
-      case 'test':
-        return (
-          <div className="space-y-3">
-            <p className="font-medium">{children}</p>
-            <div className="space-y-2">
-              {options?.map((option, idx) => (
-                <button
-                  key={idx}
-                  onClick={() => {
-                    setSelectedOption(idx);
-                    setShowAnswer(true);
-                  }}
-                  className={`w-full p-3 text-left rounded border transition-colors ${
-                    selectedOption === idx
-                      ? showAnswer
-                        ? 'bg-green-50 border-green-200'
-                        : 'bg-blue-50 border-blue-200'
-                      : 'hover:bg-gray-50'
-                  }`}
-                >
-                  <div className="flex items-center gap-2">
-                    {selectedOption === idx && showAnswer && (
-                      <CheckCircle2 className="w-4 h-4 text-green-500" />
-                    )}
-                    <span>{option}</span>
-                  </div>
-                </button>
-              ))}
-            </div>
-            {showAnswer && (
-              <div className="mt-4 p-4 bg-green-50 rounded-lg text-green-700">
-                {answer}
-              </div>
-            )}
-          </div>
-        );
-
-      case 'explore':
-      case 'intertextuality':
-        return (
-          <div className="space-y-3">
-            <p>{children}</p>
-            <button 
-              onClick={() => setIsExpanded(!isExpanded)}
-              className="text-blue-500 hover:text-blue-600 flex items-center gap-2"
-            >
-              <ArrowRight className="w-4 h-4" />
-              {isExpanded ? 'Show less' : 'Explore more'}
-            </button>
-            {isExpanded && (
-              <div className="pl-4 border-l-2 border-blue-200 mt-2">
-                <p className="text-gray-600">
-                  {type === 'explore' ? 'Related concepts and resources...' : 'Connected works and themes...'}
-                </p>
-              </div>
-            )}
-          </div>
-        );
-
-      default:
-        return <div className="text-gray-600">{children}</div>;
-    }
-  };
-
   return (
-    <div className={`bg-white border rounded-lg p-4 my-2 ${type === 'test' ? 'space-y-4' : ''}`}>
-      <div className="flex items-center gap-2 mb-3">
+    <div className="bg-white border rounded-lg p-4">
+      <div className="flex items-center gap-2 mb-2">
         {getIcon()}
-        <h3 className="font-medium text-gray-900">{title}</h3>
+        <h3 className="font-medium">{title}</h3>
       </div>
-      {renderContent()}
+      {children}
+      {options && (
+        <div className="mt-3">
+          {options.map((option, idx) => (
+            <button
+              key={idx}
+              onClick={() => setShowAnswer(true)}
+              className="w-full p-2 text-left hover:bg-gray-50 rounded"
+            >
+              {option}
+            </button>
+          ))}
+          {showAnswer && answer && (
+            <div className="mt-3 text-green-600">{answer}</div>
+          )}
+        </div>
+      )}
     </div>
   );
 };
+
+export default LearningAidCard;

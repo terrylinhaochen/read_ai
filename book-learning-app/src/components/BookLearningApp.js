@@ -1,7 +1,14 @@
 import React, { useState } from 'react';
 import { Book, Search, Upload, ChevronRight, Send } from 'lucide-react';
-import { LearningAidCard } from './LearningAid';
-import { generateBookResponse, generateInitialBookOverview } from '../services/openai';  // Add this line
+import { 
+  LearningAidSection, 
+  QuizCard, 
+  VocabCard, 
+  MisconceptionCard, 
+  ThinkingPrompt, 
+  BookTimeline 
+} from './LearningAid';
+import { generateBookResponse, generateInitialBookOverview } from '../services/openai';
 
 const BookLearningApp = () => {
   const [selectedBook, setSelectedBook] = useState(null);
@@ -167,37 +174,90 @@ const BookLearningApp = () => {
 
   const handleQuestionClick = async (question) => {
     try {
-      const aiResponse = await generateBookResponse(selectedBook, question);
-      // No need to parse again since generateBookResponse already returns parsed JSON
-      setMessages(prev => [
-        ...prev,
-        { type: 'user', content: question },
-        { 
-          type: 'assistant', 
-          content: aiResponse.content,
-          learningAids: aiResponse.learningAids,
-          prefills: aiResponse.prefills
-        }
-      ]);
+      setMessages(prev => [...prev, { type: 'user', content: question }]);
+      
+      const response = await generateBookResponse(selectedBook, question);
+      
+      setMessages(prev => [...prev, {
+        type: 'assistant',
+        content: response.content,
+        aids: response.aids
+      }]);
     } catch (error) {
-      console.error('Error getting AI response:', error);
-      // Add error handling for the user
-      setMessages(prev => [
-        ...prev,
-        { type: 'user', content: question },
-        { 
-          type: 'assistant', 
-          content: 'I apologize, but I encountered an error processing your question. Please try again.',
-          learningAids: [{
-            type: 'think',
-            title: 'Error',
-            content: 'There was a problem generating the response. Please try asking your question again.'
-          }],
-          prefills: []
-        }
-      ]);
+      console.error('Error:', error);
+      setMessages(prev => [...prev, {
+        type: 'assistant',
+        content: 'I apologize, but I encountered an error. Please try again.',
+        aids: null
+      }]);
     }
   };
+
+  const renderMessage = (message) => (
+    <div className={`${
+      message.type === 'user' 
+        ? 'ml-auto bg-blue-500 text-white' 
+        : 'bg-gray-100'
+    } p-4 rounded-lg max-w-[80%]`}>
+      <p className="mb-4">{message.content}</p>
+      
+      {message.aids && (
+        <div className="space-y-6">
+          {message.aids.quiz && (
+            <LearningAidSection title="Test Your Knowledge">
+              <QuizCard 
+                question={message.aids.quiz.question}
+                options={message.aids.quiz.options}
+              />
+            </LearningAidSection>
+          )}
+
+          {message.aids.vocab?.length > 0 && (
+            <LearningAidSection title="Build Your Vocab">
+              {message.aids.vocab.map((item, index) => (
+                <VocabCard
+                  key={index}
+                  term={item.term}
+                  definition={item.definition}
+                />
+              ))}
+            </LearningAidSection>
+          )}
+
+          {message.aids.misconceptions?.length > 0 && (
+            <LearningAidSection title="Common Misconceptions">
+              {message.aids.misconceptions.map((item, index) => (
+                <MisconceptionCard
+                  key={index}
+                  misconception={item.incorrect}
+                  correction={item.correct}
+                  explanation={item.explanation}
+                />
+              ))}
+            </LearningAidSection>
+          )}
+
+          {message.aids.thinkingPrompts?.length > 0 && (
+            <LearningAidSection title="Stop and Think">
+              {message.aids.thinkingPrompts.map((item, index) => (
+                <ThinkingPrompt
+                  key={index}
+                  prompt={item.prompt}
+                  hint={item.hint}
+                />
+              ))}
+            </LearningAidSection>
+          )}
+
+          {message.aids.background && (
+            <LearningAidSection title="Background">
+              <BookTimeline events={message.aids.background.events} />
+            </LearningAidSection>
+          )}
+        </div>
+      )}
+    </div>
+  );
 
   const handleSendMessage = () => {
     if (!inputValue.trim()) return;
@@ -303,21 +363,48 @@ const BookLearningApp = () => {
                     } p-4 rounded-lg max-w-[80%]`}
                   >
                     <p>{message.content}</p>
-                    {message.learningAid && (
+                    {message.learningAids && (
                       <div className="mt-4 space-y-3">
-                        {message.learningAids.map((aid, i) => (
-                          <LearningAidCard 
-                            key={i}
-                            type={aid.type}
-                            title={aid.title}
-                            options={aid.options}
-                            answer={aid.answer}
-                          >
-                            {aid.content}
-                          </LearningAidCard>
-                        ))}
-                      </div>
-                    )}
+                      {message.learningAids.map((aid, i) => {
+                        switch (aid.type) {
+                          case 'test':
+                            return (
+                              <QuizCard
+                                key={i}
+                                question={aid.content}
+                                options={aid.options}
+                              />
+                            );
+                          case 'think':
+                            return (
+                              <ThinkingPrompt
+                                key={i}
+                                prompt={aid.content}
+                                hint="Click to explore this idea further"
+                              />
+                            );
+                          case 'background':
+                            return (
+                              <LearningAidSection key={i} title={aid.title}>
+                                <div className="text-gray-600">{aid.content}</div>
+                              </LearningAidSection>
+                            );
+                          case 'why':
+                            return (
+                              <LearningAidSection key={i} title={aid.title}>
+                                <div className="text-gray-600">{aid.content}</div>
+                              </LearningAidSection>
+                            );
+                          default:
+                            return (
+                              <LearningAidSection key={i} title={aid.title}>
+                                <div className="text-gray-600">{aid.content}</div>
+                              </LearningAidSection>
+                            );
+                        }
+                      })}
+                    </div>
+                  )}
                     {message.prefills && message.type === 'assistant' && (
                       <div className="mt-4 flex flex-wrap gap-2">
                         {message.prefills.map((prefill, i) => (
