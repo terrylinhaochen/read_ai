@@ -57,6 +57,33 @@ const BookLearningApp = () => {
     }
   ];
 
+  const bookTopics = {
+    "1984": [
+      {
+        title: "Understand the context and background of 1984",
+        subtopics: [
+          "George Orwell's Life",
+          "Post-World War II Era",
+        ]
+      },
+      {
+        title: "Describe the key characters and setting",
+        subtopics: [
+          "Winston Smith",
+          "Julia",
+        ]
+      },
+      {
+        title: "Explain the major themes and concepts",
+        subtopics: [
+          "Totalitarianism",
+          "Surveillance",
+          "Propaganda",
+        ]
+      }
+    ]
+  };
+  
   const getAIResponse = (question, bookTitle = selectedBook?.title) => {
     // Initial book overview
     if (question.includes("What's it about?") && bookTitle === "1984") {
@@ -141,12 +168,15 @@ const BookLearningApp = () => {
 
   const handleTopicClick = (topic) => {
     setSelectedTopic(topic);
-    const topicQuestion = `Tell me about ${topic} in ${selectedBook.title}`;
+    const topicQuestion = `Explain ${topic} in ${selectedBook.title}`;
     handleQuestionClick(topicQuestion);
   };
 
   const handleBookSelect = async (book) => {
-    setSelectedBook(book);
+    setSelectedBook({
+      ...book,
+      topics: bookTopics[book.title] || [] // Fallback to empty array if no topics defined
+    });
     try {
       const overview = await generateInitialBookOverview(book);
       setMessages([
@@ -161,14 +191,8 @@ const BookLearningApp = () => {
           prefills: overview.prefills
         }
       ]);
-      // Update book topics from AI response
-      setSelectedBook(prev => ({
-        ...prev,
-        topics: overview.topics
-      }));
     } catch (error) {
       console.error('Error getting book overview:', error);
-      // Handle error appropriately
     }
   };
 
@@ -317,34 +341,49 @@ const BookLearningApp = () => {
           </div>
         ) : (
           <div className="flex gap-6">
-            <div className="w-64 bg-white p-4 rounded-lg shadow-sm">
-              <div className="mb-4">
+            <div className="w-72 bg-white p-6 rounded-lg shadow-sm">
+              <div className="mb-6">
                 <button 
                   onClick={() => {
                     setSelectedBook(null);
                     setSelectedTopic(null);
                     setMessages([]);
                   }}
-                  className="text-blue-500 hover:text-blue-600"
+                  className="text-blue-500 hover:text-blue-600 flex items-center gap-1"
                 >
-                  ← Back to books
+                  <ChevronRight className="w-4 h-4 rotate-180" />
+                  <span>Back to books</span>
                 </button>
               </div>
-              <h3 className="font-medium mb-4">Explore Topics</h3>
-              <ul className="space-y-2">
-                {selectedBook.topics.map((topic) => (
-                  <li 
-                    key={topic}
-                    onClick={() => handleTopicClick(topic)}
-                    className={`flex items-center text-blue-500 hover:text-blue-600 cursor-pointer ${
-                      selectedTopic === topic ? 'font-medium' : ''
-                    }`}
-                  >
-                    <ChevronRight className="w-4 h-4" />
-                    <span>{topic}</span>
-                  </li>
+              
+              <div className="mb-4">
+                <div className="flex items-center gap-2 text-blue-600">
+                  <Book className="w-5 h-5" />
+                  <span className="font-medium">Suggested topics for</span>
+                </div>
+                <h2 className="text-xl font-semibold mt-1">{selectedBook.title}</h2>
+              </div>
+        
+              <div className="space-y-8">
+                {bookTopics[selectedBook.title]?.map((section, idx) => (
+                  <div key={idx}>
+                    <h3 className="font-medium text-gray-900 mb-3">{section.title}</h3>
+                    <div className="space-y-2">
+                      {section.subtopics.map((topic) => (
+                        <button
+                          key={topic}
+                          onClick={() => handleTopicClick(topic)}
+                          className={`w-full text-left px-4 py-2 rounded-lg hover:bg-gray-50 ${
+                            selectedTopic === topic ? 'bg-blue-50 text-blue-600' : 'text-gray-600'
+                          }`}
+                        >
+                          {topic}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
                 ))}
-              </ul>
+              </div>
             </div>
 
             <div className="flex-1 bg-white rounded-lg shadow-sm flex flex-col h-[80vh]">
