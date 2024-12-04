@@ -35,25 +35,39 @@ export const QuizCard = ({ question, options }) => {
   );
 };
 
-export const VocabCard = ({ term, definition }) => (
-  <div className="p-3 bg-gray-50 rounded">
-    <div className="font-medium">{term}</div>
-    <div className="text-gray-600">{definition}</div>
+export const VocabCard = ({ term, definition, content }) => (
+  <div className="p-3 bg-blue-50 rounded border border-blue-100">
+    {/* Handle both direct term/definition and content-only cases */}
+    {term && definition ? (
+      <>
+        <div className="font-medium text-blue-800 mb-2">{term}</div>
+        <div className="text-gray-600">{definition}</div>
+      </>
+    ) : (
+      <div className="text-gray-600">{content}</div>
+    )}
   </div>
 );
 
-export const MisconceptionCard = ({ misconception, correction, explanation }) => (
-  <div className="space-y-2">
-    <div className="flex items-start gap-2">
-      <div className="text-red-500">✕</div>
-      <div>{misconception}</div>
-    </div>
-    <div className="flex items-start gap-2">
-      <div className="text-green-500">✓</div>
-      <div>{correction}</div>
-    </div>
-    {explanation && (
-      <div className="text-gray-600 mt-2">{explanation}</div>
+export const MisconceptionCard = ({ misconception, correction, explanation, content }) => (
+  <div className="p-3 bg-red-50 rounded border border-red-100">
+    {/* Handle both structured and content-only cases */}
+    {misconception && correction ? (
+      <>
+        <div className="flex items-start gap-2 mb-2">
+          <div className="text-red-500">✕</div>
+          <div className="text-gray-800">{misconception}</div>
+        </div>
+        <div className="flex items-start gap-2 mb-2">
+          <div className="text-green-500">✓</div>
+          <div className="text-gray-800">{correction}</div>
+        </div>
+        {explanation && (
+          <div className="mt-2 text-gray-600">{explanation}</div>
+        )}
+      </>
+    ) : (
+      <div className="text-gray-600">{content}</div>
     )}
   </div>
 );

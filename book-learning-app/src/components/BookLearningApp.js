@@ -173,12 +173,23 @@ const BookLearningApp = () => {
   };
 
   const handleBookSelect = async (book) => {
-    setSelectedBook({
-      ...book,
-      topics: bookTopics[book.title] || [] // Fallback to empty array if no topics defined
-    });
+    setSelectedBook(book);
+    // Immediately show the user's question
+    setMessages([
+      {
+        type: 'user',
+        content: `I want to learn more about ${book.title}. What's it about?`
+      },
+      {
+        type: 'assistant',
+        content: 'Analyzing the book...',
+        loading: true // Add this flag to show loading state
+      }
+    ]);
+  
     try {
       const overview = await generateInitialBookOverview(book);
+      // Replace the loading message with the actual response
       setMessages([
         {
           type: 'user',
@@ -191,8 +202,22 @@ const BookLearningApp = () => {
           prefills: overview.prefills
         }
       ]);
+      // Update book topics from AI response
+      setSelectedBook(prev => ({
+        ...prev,
+        topics: overview.topics
+      }));
     } catch (error) {
       console.error('Error getting book overview:', error);
+      // Update with error message if failed
+      setMessages(prev => [
+        prev[0],
+        {
+          type: 'assistant',
+          content: 'I apologize, but I encountered an error generating the overview. Please try again.',
+          error: true
+        }
+      ]);
     }
   };
 
@@ -225,59 +250,90 @@ const BookLearningApp = () => {
     } p-4 rounded-lg max-w-[80%]`}>
       <p className="mb-4">{message.content}</p>
       
-      {message.aids && (
-        <div className="space-y-6">
-          {message.aids.quiz && (
-            <LearningAidSection title="Test Your Knowledge">
-              <QuizCard 
-                question={message.aids.quiz.question}
-                options={message.aids.quiz.options}
-              />
-            </LearningAidSection>
-          )}
-
-          {message.aids.vocab?.length > 0 && (
-            <LearningAidSection title="Build Your Vocab">
-              {message.aids.vocab.map((item, index) => (
-                <VocabCard
-                  key={index}
-                  term={item.term}
-                  definition={item.definition}
-                />
-              ))}
-            </LearningAidSection>
-          )}
-
-          {message.aids.misconceptions?.length > 0 && (
-            <LearningAidSection title="Common Misconceptions">
-              {message.aids.misconceptions.map((item, index) => (
-                <MisconceptionCard
-                  key={index}
-                  misconception={item.incorrect}
-                  correction={item.correct}
-                  explanation={item.explanation}
-                />
-              ))}
-            </LearningAidSection>
-          )}
-
-          {message.aids.thinkingPrompts?.length > 0 && (
-            <LearningAidSection title="Stop and Think">
-              {message.aids.thinkingPrompts.map((item, index) => (
-                <ThinkingPrompt
-                  key={index}
-                  prompt={item.prompt}
-                  hint={item.hint}
-                />
-              ))}
-            </LearningAidSection>
-          )}
-
-          {message.aids.background && (
-            <LearningAidSection title="Background">
-              <BookTimeline events={message.aids.background.events} />
-            </LearningAidSection>
-          )}
+      {/* Loading State */}
+      {message.loading && (
+        <div className="mt-4 flex items-center gap-2 text-gray-500">
+          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-900"></div>
+          <span>Generating response...</span>
+        </div>
+      )}
+      
+      {/* Learning Aids */}
+      {message.learningAids && (
+        <div className="mt-4 space-y-3">
+          {message.learningAids.map((aid, i) => {
+            switch (aid.type) {
+              case 'test':
+                return (
+                  <QuizCard
+                    key={i}
+                    question={aid.content}
+                    options={aid.options}
+                  />
+                );
+              case 'think':
+                return (
+                  <ThinkingPrompt
+                    key={i}
+                    prompt={aid.content}
+                    hint="Click to explore this idea further"
+                  />
+                );
+                case 'vocab':
+                  return (
+                    <LearningAidSection key={i} title={aid.title || "Key Term"}>
+                      <VocabCard
+                        key={i}
+                        term={aid.term}
+                        definition={aid.definition}
+                        content={aid.content}
+                      />
+                    </LearningAidSection>
+                  );
+                
+                case 'misconception':
+                  return (
+                    <LearningAidSection key={i} title={aid.title || "Common Misconception"}>
+                      <MisconceptionCard
+                        key={i}
+                        misconception={aid.incorrect}
+                        correction={aid.correct}
+                        explanation={aid.explanation}
+                        content={aid.content}
+                      />
+                    </LearningAidSection>
+                  );
+              case 'background':
+                return (
+                  <LearningAidSection key={i} title={aid.title}>
+                    <BookTimeline events={aid.events || []} />
+                  </LearningAidSection>
+                );
+              case 'connection':
+              case 'why':
+              default:
+                return (
+                  <LearningAidSection key={i} title={aid.title}>
+                    <div className="text-gray-600">{aid.content}</div>
+                  </LearningAidSection>
+                );
+            }
+          })}
+        </div>
+      )}
+  
+      {/* Follow-up Questions */}
+      {message.prefills && message.type === 'assistant' && (
+        <div className="mt-4 flex flex-wrap gap-2">
+          {message.prefills.map((prefill, i) => (
+            <button
+              key={i}
+              onClick={() => handleQuestionClick(prefill)}
+              className="px-3 py-1 bg-white text-gray-600 rounded-full text-sm hover:bg-gray-50"
+            >
+              {prefill}
+            </button>
+          ))}
         </div>
       )}
     </div>

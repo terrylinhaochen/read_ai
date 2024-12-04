@@ -33,18 +33,60 @@ const extractJSONFromResponse = (text) => {
   }
 };
 
-const LEARNING_AIDS_PROMPT = `
-Available learning aid types and their purposes:
-- think: Reflection questions or critical thinking prompts
-- why: Explanations of significance or relevance
-- background: Historical or contextual information
-- test: Multiple choice or open-ended questions
-- intertextuality: Connections to other works
-- explore: Related resources or concepts
-- guide: Step-by-step analysis or reading guide
+const RESPONSE_FORMAT = `For every response, provide:
+1. A concise main answer (2-3 sentences)
+2. At least three of these learning aids:
+   - A test question with multiple choice options
+   - A key vocabulary term or concept definition
+   - A thought-provoking discussion prompt
+   - Historical or contextual background
+   - Connections to other works or modern relevance
+   - Common misconceptions and corrections
+3. Three relevant follow-up questions
 
-Each learning aid should be targeted and relevant to the current discussion point.
-`;
+Format as JSON:
+{
+  "content": "concise main answer",
+  "learningAids": [
+    {
+      "type": "test",
+      "title": "Test Your Understanding",
+      "content": "question text",
+      "options": ["option1", "option2", "option3"],
+      "answer": "explanation of correct answer"
+    },
+    {
+      "type": "vocab",
+      "title": "Key Term",
+      "term": "term or concept",
+      "definition": "clear definition"
+    },
+    {
+      "type": "think",
+      "title": "Stop and Think",
+      "content": "thought prompt",
+      "hint": "thinking guidance"
+    },
+    {
+      "type": "background",
+      "title": "Historical Context",
+      "content": "relevant background"
+    },
+    {
+      "type": "connection",
+      "title": "Related Works",
+      "content": "connections to other works or modern day"
+    },
+    {
+      "type": "misconception",
+      "title": "Common Misconception",
+      "incorrect": "wrong idea",
+      "correct": "right idea",
+      "explanation": "detailed explanation"
+    }
+  ],
+  "prefills": ["follow-up question 1", "follow-up question 2", "follow-up question 3"]
+}`;
 
 const generateBookResponse = async (book, question) => {
   try {
@@ -53,31 +95,21 @@ const generateBookResponse = async (book, question) => {
       messages: [
         {
           role: 'system',
-          content: 'You are a knowledgeable literary assistant helping users understand books. Respond with a JSON object containing a main response, learning aids, and follow-up questions. Do not include markdown formatting or code blocks in your response. Return only the JSON object.'
+          content: `You are a knowledgeable literary assistant helping users understand ${book.title}. 
+          ${RESPONSE_FORMAT}
+          Keep main answers concise but ensure learning aids are comprehensive and engaging.
+          Do not include markdown formatting. Return only pure JSON.`
         },
         {
           role: 'user',
-          content: `Book: ${book.title}
-          Question: ${question}
-          
-          Response format:
-          {
-            "content": "main response text",
-            "learningAids": [{
-              "type": "think|why|background|test",
-              "title": "aid title",
-              "content": "aid content",
-              "options": ["option1", "option2"],
-              "answer": "correct answer"
-            }],
-            "prefills": ["follow-up question 1", "follow-up question 2"]
-          }`
+          content: question
         }
-      ]
+      ],
+      temperature: 0.7
     });
 
     const aiResponse = response.data.choices[0].message.content;
-    console.log('Raw AI Response:', aiResponse); // Add this line
+    console.log('Raw AI Response:', aiResponse);
     return extractJSONFromResponse(aiResponse);
   } catch (error) {
     console.error('Error calling OpenAI:', error);
@@ -88,31 +120,22 @@ const generateBookResponse = async (book, question) => {
 const generateInitialBookOverview = async (book) => {
   try {
     const response = await api.post('/chat/completions', {
-      model: 'gpt-4o',
+      model: 'gpt-4',
       messages: [
         {
           role: 'system',
-          content: `Generate an engaging overview of the book as a JSON object.
-          ${LEARNING_AIDS_PROMPT}
-          Include 2-3 relevant learning aids that will help readers start exploring the book.
-          Identify 3-4 major topics or themes for discussion.
-          Do not include markdown formatting in your response. Return only the JSON object.`
+          content: `Generate an initial overview of ${book.title} by ${book.author}.
+          ${RESPONSE_FORMAT}
+          Additionally include:
+          - A list of major topics/themes for the book
+          - Background on the author and historical context
+          - The book's significance and relevance today
+          
+          Return as JSON with an additional "topics" array for the major themes.`
         },
         {
           role: 'user',
-          content: `Generate an overview for: ${book.title} by ${book.author}
-          
-          Response format:
-          {
-            "content": "brief but engaging overview",
-            "topics": ["topic1", "topic2", "topic3"],
-            "learningAids": [{
-              "type": "why|background|explore",
-              "title": "aid title",
-              "content": "aid content"
-            }],
-            "prefills": ["suggested question 1", "suggested question 2"]
-          }`
+          content: `Provide an engaging overview of ${book.title}`
         }
       ],
       temperature: 0.7
