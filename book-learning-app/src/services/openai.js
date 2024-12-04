@@ -10,10 +10,8 @@ const api = axios.create({
 
 const extractJSONFromResponse = (text) => {
   try {
-    // If it's already valid JSON, return it
     return JSON.parse(text);
   } catch (e) {
-    // Try to extract JSON from markdown code block
     const jsonMatch = text.match(/```(?:json)?\s*(\{[\s\S]*?\})\s*```/);
     if (jsonMatch) {
       try {
@@ -23,7 +21,6 @@ const extractJSONFromResponse = (text) => {
       }
     }
     
-    // Fallback response if parsing fails
     return {
       content: text,
       learningAids: [{
@@ -35,6 +32,19 @@ const extractJSONFromResponse = (text) => {
     };
   }
 };
+
+const LEARNING_AIDS_PROMPT = `
+Available learning aid types and their purposes:
+- think: Reflection questions or critical thinking prompts
+- why: Explanations of significance or relevance
+- background: Historical or contextual information
+- test: Multiple choice or open-ended questions
+- intertextuality: Connections to other works
+- explore: Related resources or concepts
+- guide: Step-by-step analysis or reading guide
+
+Each learning aid should be targeted and relevant to the current discussion point.
+`;
 
 const generateBookResponse = async (book, question) => {
   try {
@@ -67,6 +77,7 @@ const generateBookResponse = async (book, question) => {
     });
 
     const aiResponse = response.data.choices[0].message.content;
+    console.log('Raw AI Response:', aiResponse); // Add this line
     return extractJSONFromResponse(aiResponse);
   } catch (error) {
     console.error('Error calling OpenAI:', error);
@@ -77,11 +88,15 @@ const generateBookResponse = async (book, question) => {
 const generateInitialBookOverview = async (book) => {
   try {
     const response = await api.post('/chat/completions', {
-      model: 'gpt-4',
+      model: 'gpt-4o',
       messages: [
         {
           role: 'system',
-          content: 'Generate a book overview as a JSON object. Do not include markdown formatting or code blocks in your response. Return only the JSON object.'
+          content: `Generate an engaging overview of the book as a JSON object.
+          ${LEARNING_AIDS_PROMPT}
+          Include 2-3 relevant learning aids that will help readers start exploring the book.
+          Identify 3-4 major topics or themes for discussion.
+          Do not include markdown formatting in your response. Return only the JSON object.`
         },
         {
           role: 'user',
@@ -89,17 +104,18 @@ const generateInitialBookOverview = async (book) => {
           
           Response format:
           {
-            "content": "brief overview",
+            "content": "brief but engaging overview",
             "topics": ["topic1", "topic2", "topic3"],
             "learningAids": [{
-              "type": "why|background",
+              "type": "why|background|explore",
               "title": "aid title",
               "content": "aid content"
             }],
             "prefills": ["suggested question 1", "suggested question 2"]
           }`
         }
-      ]
+      ],
+      temperature: 0.7
     });
 
     const aiResponse = response.data.choices[0].message.content;

@@ -168,21 +168,34 @@ const BookLearningApp = () => {
   const handleQuestionClick = async (question) => {
     try {
       const aiResponse = await generateBookResponse(selectedBook, question);
-      const parsedResponse = JSON.parse(aiResponse);
-      
+      // No need to parse again since generateBookResponse already returns parsed JSON
       setMessages(prev => [
         ...prev,
         { type: 'user', content: question },
         { 
           type: 'assistant', 
-          content: parsedResponse.content,
-          learningAids: parsedResponse.learningAids,
-          prefills: parsedResponse.prefills
+          content: aiResponse.content,
+          learningAids: aiResponse.learningAids,
+          prefills: aiResponse.prefills
         }
       ]);
     } catch (error) {
       console.error('Error getting AI response:', error);
-      // Handle error appropriately
+      // Add error handling for the user
+      setMessages(prev => [
+        ...prev,
+        { type: 'user', content: question },
+        { 
+          type: 'assistant', 
+          content: 'I apologize, but I encountered an error processing your question. Please try again.',
+          learningAids: [{
+            type: 'think',
+            title: 'Error',
+            content: 'There was a problem generating the response. Please try asking your question again.'
+          }],
+          prefills: []
+        }
+      ]);
     }
   };
 
