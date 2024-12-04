@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Book, Search, Upload, ChevronRight, Send } from 'lucide-react';
-import { LearningAidCard } from './LearningAids';
+import { LearningAidCard } from './LearningAid';
 
 const BookLearningApp = () => {
   const [selectedBook, setSelectedBook] = useState(null);
@@ -271,7 +271,7 @@ const BookLearningApp = () => {
                     } p-4 rounded-lg max-w-[80%]`}
                   >
                     <p>{message.content}</p>
-                    {message.learningAids && (
+                    {message.learningAid && (
                       <div className="mt-4 space-y-3">
                         {message.learningAids.map((aid, i) => (
                           <LearningAidCard 
