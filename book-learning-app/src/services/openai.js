@@ -34,55 +34,22 @@ const extractJSONFromResponse = (text) => {
 };
 
 const RESPONSE_FORMAT = `For every response, provide:
-1. A concise main answer (2-3 sentences)
-2. At least three of these learning aids:
-   - A test question with multiple choice options
-   - A key vocabulary term or concept definition
+1. A clear, concise main answer (2-3 sentences)
+2. Only include learning aids that have meaningful content:
    - A thought-provoking discussion prompt
    - Historical or contextual background
-   - Connections to other works or modern relevance
-   - Common misconceptions and corrections
-3. Three relevant follow-up questions
+   - A key concept explanation
+   - A connection to modern relevance
+3. Three follow-up questions
 
 Format as JSON:
 {
-  "content": "concise main answer",
+  "content": "main answer here",
   "learningAids": [
-    {
-      "type": "test",
-      "title": "Test Your Understanding",
-      "content": "question text",
-      "options": ["option1", "option2", "option3"],
-      "answer": "explanation of correct answer"
-    },
-    {
-      "type": "vocab",
-      "title": "Key Term",
-      "term": "term or concept",
-      "definition": "clear definition"
-    },
     {
       "type": "think",
       "title": "Stop and Think",
-      "content": "thought prompt",
-      "hint": "thinking guidance"
-    },
-    {
-      "type": "background",
-      "title": "Historical Context",
-      "content": "relevant background"
-    },
-    {
-      "type": "connection",
-      "title": "Related Works",
-      "content": "connections to other works or modern day"
-    },
-    {
-      "type": "misconception",
-      "title": "Common Misconception",
-      "incorrect": "wrong idea",
-      "correct": "right idea",
-      "explanation": "detailed explanation"
+      "content": "thought-provoking question or prompt"
     }
   ],
   "prefills": ["follow-up question 1", "follow-up question 2", "follow-up question 3"]
@@ -97,7 +64,7 @@ const generateBookResponse = async (book, question) => {
           role: 'system',
           content: `You are a knowledgeable literary assistant helping users understand ${book.title}. 
           ${RESPONSE_FORMAT}
-          Keep main answers concise but ensure learning aids are comprehensive and engaging.
+          Keep responses focused and engaging. Avoid technical jargon unless specifically asked.
           Do not include markdown formatting. Return only pure JSON.`
         },
         {
@@ -109,7 +76,6 @@ const generateBookResponse = async (book, question) => {
     });
 
     const aiResponse = response.data.choices[0].message.content;
-    console.log('Raw AI Response:', aiResponse);
     return extractJSONFromResponse(aiResponse);
   } catch (error) {
     console.error('Error calling OpenAI:', error);
@@ -126,16 +92,13 @@ const generateInitialBookOverview = async (book) => {
           role: 'system',
           content: `Generate an initial overview of ${book.title} by ${book.author}.
           ${RESPONSE_FORMAT}
-          Additionally include:
-          - A list of major topics/themes for the book
-          - Background on the author and historical context
-          - The book's significance and relevance today
-          
-          Return as JSON with an additional "topics" array for the major themes.`
+          Focus on capturing reader interest and highlighting key aspects.
+          Include one "why it matters" aid and one "think about" prompt.
+          Return as JSON with the same format as other responses.`
         },
         {
           role: 'user',
-          content: `Provide an engaging overview of ${book.title}`
+          content: `What makes ${book.title} worth reading?`
         }
       ],
       temperature: 0.7
