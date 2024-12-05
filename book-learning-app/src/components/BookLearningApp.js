@@ -11,6 +11,7 @@ const BookLearningApp = () => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [reflectionNotes, setReflectionNotes] = useState('');
   const [discussionCount, setDiscussionCount] = useState(0);
+  const [showTopics, setShowTopics] = useState(false);
   
   // Learning goals with clear descriptions
   const learningGoals = [
@@ -99,9 +100,29 @@ const BookLearningApp = () => {
     }
   ];
 
+  const bookTopicAreas = {
+    "1984": {
+      "Themes": [
+        { label: "Power & Control", question: "How does Orwell portray the relationship between power and control in 1984? Consider the Party's methods and their psychological impact." },
+        { label: "Truth & Reality", question: "How does the Party's manipulation of truth and reality in 1984 reflect modern concerns about information control?" },
+        { label: "Surveillance State", question: "What parallels can we draw between the surveillance methods in 1984 and modern digital surveillance?" }
+      ],
+      "Characters": [
+        { label: "Winston Smith", question: "How does Winston's character development reflect the struggle between individuality and conformity?" },
+        { label: "Julia", question: "What role does Julia play in challenging the Party's control over human nature and emotions?" }
+      ],
+      "Symbolism": [
+        { label: "Room 101", question: "What does Room 101 symbolize beyond just a torture chamber? How does it represent the Party's ultimate power?" },
+        { label: "Telescreens", question: "How do the telescreens serve as both a literal and metaphorical tool of control?" }
+      ]
+    },
+    // Add similar structures for other books...
+  };
+
   const handleBookSelect = (book) => {
     setSelectedBook(book);
     setCurrentStep('aim');
+    setShowTopics(true);
     setMessages([
       {
         type: 'assistant',
@@ -134,10 +155,18 @@ const BookLearningApp = () => {
   const handleStartDiscussion = async () => {
     setCurrentStep('talk');
     try {
+      setMessages(prev => [...prev, 
+        {
+          type: 'assistant',
+          content: 'Generating discussion points...',
+          loading: true
+        }
+      ]);
+
       const initialQuestion = "What are the main themes and key points we should discuss?";
       const response = await generateBookResponse(selectedBook, initialQuestion);
       
-      setMessages(prev => [...prev, 
+      setMessages(prev => [...prev.slice(0, -1), 
         {
           type: 'assistant',
           content: response.content,
@@ -148,7 +177,7 @@ const BookLearningApp = () => {
       setDiscussionCount(1);
     } catch (error) {
       console.error('Error starting discussion:', error);
-      setMessages(prev => [...prev, 
+      setMessages(prev => [...prev.slice(0, -1), 
         {
           type: 'assistant',
           content: 'I apologize, but I encountered an error. Please try again.',
@@ -206,6 +235,93 @@ const BookLearningApp = () => {
     ]);
   };
 
+  const handleTopicClick = async (question) => {
+    try {
+      setMessages(prev => [...prev,
+        { type: 'user', content: question },
+        { 
+          type: 'assistant', 
+          content: 'Analyzing this aspect...', 
+          loading: true 
+        }
+      ]);
+      
+      const response = await generateBookResponse(selectedBook, question);
+      
+      setMessages(prev => [
+        ...prev.slice(0, -1),
+        {
+          type: 'assistant',
+          content: response.content,
+          learningAids: response.learningAids,
+          prefills: response.prefills,
+          clickableInsights: response.learningAids?.map(aid => ({
+            label: aid.title,
+            question: `Can you elaborate on ${aid.title.toLowerCase()} in ${selectedBook.title}?`
+          }))
+        }
+      ]);
+      
+      setDiscussionCount(prev => prev + 1);
+    } catch (error) {
+      console.error('Error:', error);
+      setMessages(prev => [
+        ...prev.slice(0, -1),
+        {
+          type: 'assistant',
+          content: 'I apologize, but I encountered an error. Please try again.',
+        }
+      ]);
+    }
+  };
+
+  // Simplify handleCardClick to use the same pattern as handleQuestionClick
+  const handleCardClick = async (aid) => {
+    try {
+      // Construct a specific question about the card content
+      const expandQuestion = `Please expand on this topic from ${selectedBook.title}: ${aid.title}
+
+${aid.content}
+
+Provide a deeper analysis of its significance and connections to the book's themes.`;
+
+      setMessages(prev => [...prev,
+        { 
+          type: 'user', 
+          content: `Expand on: ${aid.title}` 
+        },
+        {
+          type: 'assistant',
+          content: 'Analyzing this aspect in detail...',
+          loading: true
+        }
+      ]);
+
+      const response = await generateBookResponse(selectedBook, expandQuestion);
+
+      setMessages(prev => [
+        ...prev.slice(0, -1),
+        {
+          type: 'assistant',
+          content: response.content,
+          learningAids: response.learningAids,
+          prefills: response.prefills
+        }
+      ]);
+
+    } catch (error) {
+      console.error('Error expanding section:', error);
+      setMessages(prev => [
+        ...prev.slice(0, -1),
+        {
+          type: 'assistant',
+          content: 'I apologize, but I encountered an error analyzing this section. Please try again.',
+        }
+      ]);
+    }
+  };
+
+  // Update renderMessage to use the new handler
   const renderMessage = (message) => (
     <div className={`${
       message.type === 'user' 
@@ -284,9 +400,9 @@ const BookLearningApp = () => {
 
       {/* Loading State */}
       {message.loading && (
-        <div className="mt-4 flex items-center gap-2 text-gray-500">
-          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-900"></div>
-          <span>Thinking...</span>
+        <div className="flex items-center gap-2 text-gray-500">
+          <div className="animate-spin rounded-full h-4 w-4 border-2 border-gray-300 border-t-gray-600"></div>
+          <span className="text-sm">Generating response...</span>
         </div>
       )}
 
@@ -294,21 +410,40 @@ const BookLearningApp = () => {
       {message.learningAids && (
         <div className="mt-4 space-y-3">
           {message.learningAids.map((aid, idx) => (
-            <LearningAidSection key={idx} title={aid.title}>
-              <div className="text-gray-600">{aid.content}</div>
-            </LearningAidSection>
+            <div
+              key={idx}
+              onClick={() => handleCardClick(aid)}
+              className="cursor-pointer group transition-all duration-200"
+            >
+              <LearningAidSection 
+                title={aid.title}
+                type={aid.type}
+                className="hover:border-blue-300 hover:shadow-md transition-all duration-200"
+              >
+                <div className="text-gray-600 group-hover:text-gray-900">
+                  {aid.content}
+                </div>
+                
+                {/* Hover indicator */}
+                <div className="mt-2 text-sm text-blue-500 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                  Click to explore this section in depth →
+                </div>
+              </LearningAidSection>
+            </div>
           ))}
         </div>
       )}
 
       {/* Follow-up Questions */}
-      {message.prefills && (
+      {!message.loading && message.prefills && (
         <div className="mt-4 flex flex-wrap gap-2">
           {message.prefills.map((prefill, idx) => (
             <button
               key={idx}
               onClick={() => handleQuestionClick(prefill)}
-              className="px-3 py-1 bg-white text-gray-600 rounded-full text-sm hover:bg-gray-50"
+              className="px-3 py-1 bg-white text-gray-600 rounded-full text-sm 
+                       hover:bg-gray-50 border border-gray-200
+                       hover:border-blue-300 hover:text-blue-600 transition-all"
             >
               {prefill}
             </button>
@@ -349,6 +484,26 @@ const BookLearningApp = () => {
           </div>
         </div>
       )}
+
+      {/* Clickable Insights */}
+      {!message.loading && message.clickableInsights && (
+        <div className="mt-4 space-y-2">
+          <h4 className="font-medium text-gray-700">Explore Further:</h4>
+          <div className="flex flex-wrap gap-2">
+            {message.clickableInsights.map((insight, idx) => (
+              <button
+                key={idx}
+                onClick={() => handleTopicClick(insight.question)}
+                className="px-3 py-1 bg-white text-gray-600 rounded-full text-sm
+                         hover:bg-blue-50 hover:text-blue-600 transition-colors
+                         border border-gray-200"
+              >
+                {insight.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 
@@ -367,6 +522,59 @@ const BookLearningApp = () => {
     }
   }, [discussionCount, messages, currentStep]);
 
+  const renderSidebar = () => (
+    <div className="w-72 space-y-6">
+      {/* Books Section - Collapsible when book selected */}
+      <div className={`transition-all duration-300 ${showTopics ? 'mb-4' : 'mb-0'}`}>
+        <h2 className="text-lg font-medium mb-4">Books to get you started</h2>
+        <div className={`space-y-4 ${showTopics ? 'max-h-48 overflow-y-auto' : ''}`}>
+          {featuredBooks.map(book => (
+            <div 
+              key={book.id}
+              onClick={() => handleBookSelect(book)}
+              className="p-4 bg-white rounded-lg shadow-sm hover:shadow-md 
+                       transition-shadow cursor-pointer"
+            >
+              <div className="flex items-center gap-3">
+                <Book className="w-5 h-5 text-blue-500" />
+                <div>
+                  <h3 className="font-medium">{book.title}</h3>
+                  <p className="text-sm text-gray-600">{book.author}</p>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Topics Section - Shows when book is selected */}
+      {showTopics && selectedBook && (
+        <div className="bg-white rounded-lg shadow-sm p-4">
+          <h3 className="font-medium text-lg mb-4">Areas to Explore</h3>
+          <div className="space-y-4">
+            {Object.entries(bookTopicAreas[selectedBook.title] || {}).map(([category, topics]) => (
+              <div key={category} className="space-y-2">
+                <h4 className="font-medium text-gray-700">{category}</h4>
+                <div className="space-y-1">
+                  {topics.map((topic, idx) => (
+                    <button
+                      key={idx}
+                      onClick={() => handleTopicClick(topic.question)}
+                      className="w-full text-left p-2 rounded-lg text-sm text-gray-600
+                               hover:bg-blue-50 hover:text-blue-600 transition-colors"
+                    >
+                      {topic.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+
   return (
     <div className="min-h-screen bg-gray-50">
       <header className="bg-white shadow-sm">
@@ -377,28 +585,7 @@ const BookLearningApp = () => {
 
       <main className="max-w-7xl mx-auto px-4 py-6">
         <div className="flex gap-6">
-          {/* Books Sidebar */}
-          <div className="w-72">
-            <h2 className="text-lg font-medium mb-4">Books to get you started</h2>
-            <div className="space-y-4">
-              {featuredBooks.map(book => (
-                <div 
-                  key={book.id}
-                  onClick={() => handleBookSelect(book)}
-                  className="p-4 bg-white rounded-lg shadow-sm hover:shadow-md 
-                           transition-shadow cursor-pointer"
-                >
-                  <div className="flex items-center gap-3">
-                    <Book className="w-5 h-5 text-blue-500" />
-                    <div>
-                      <h3 className="font-medium">{book.title}</h3>
-                      <p className="text-sm text-gray-600">{book.author}</p>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
+          {renderSidebar()}
 
           {/* Main Content Area */}
           <div className="flex-1 bg-white rounded-lg shadow-sm flex flex-col h-[80vh]">
