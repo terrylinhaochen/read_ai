@@ -575,20 +575,46 @@ Provide a deeper analysis of its significance and connections to the book's them
     </div>
   );
 
-  // Add handleSubmit function
+  // Update handleSubmit to handle initial book selection and questions
   const handleSubmit = async (e) => {
-    e?.preventDefault(); // Handle both button click and form submit
+    e?.preventDefault();
     
-    if (!inputValue.trim() || !selectedBook) return;
+    if (!inputValue.trim()) return;
 
     try {
+      // Check if user is asking about 1984 without having selected it
+      const is1984Question = inputValue.toLowerCase().includes('1984');
+      
+      if (!selectedBook && is1984Question) {
+        // Find 1984 in featuredBooks
+        const book1984 = featuredBooks.find(book => book.title === "1984");
+        setSelectedBook(book1984);
+        setCurrentStep('talk');
+        setShowTopics(true);
+      }
+
       // Add user message and loading state
       setMessages(prev => [...prev,
         { type: 'user', content: inputValue },
         { type: 'assistant', content: 'Thinking...', loading: true }
       ]);
 
-      const response = await generateBookResponse(selectedBook, inputValue);
+      let response;
+      if (!selectedBook && is1984Question) {
+        // If this is the first question about 1984, include context in response
+        const book1984 = featuredBooks.find(book => book.title === "1984");
+        response = await generateBookResponse(book1984, inputValue);
+      } else if (selectedBook) {
+        // Normal question handling
+        response = await generateBookResponse(selectedBook, inputValue);
+      } else {
+        // Handle non-1984 input when no book is selected
+        response = {
+          content: "I can help you discuss '1984' by George Orwell. Please include '1984' in your question or select the book from the sidebar to get started.",
+          learningAids: [],
+          prefills: []
+        };
+      }
 
       // Replace loading message with response
       setMessages(prev => [
@@ -603,7 +629,9 @@ Provide a deeper analysis of its significance and connections to the book's them
 
       // Clear input after sending
       setInputValue('');
-      setDiscussionCount(prev => prev + 1);
+      if (selectedBook) {
+        setDiscussionCount(prev => prev + 1);
+      }
     } catch (error) {
       console.error('Error:', error);
       setMessages(prev => [
@@ -634,10 +662,25 @@ Provide a deeper analysis of its significance and connections to the book's them
             {selectedBook && (
               <div className="flex items-center justify-between px-4 py-2 bg-gray-50 border-b">
                 {['aim', 'listen', 'talk', 'reflect'].map((step, idx) => (
-                  <div key={step} className="flex items-center">
+                  <div 
+                    key={step} 
+                    className="flex items-center"
+                    onClick={() => {
+                      if (step === 'aim') {
+                        setCurrentStep('aim');
+                        setMessages([{
+                          type: 'assistant',
+                          content: `What's your goal for reading ${selectedBook.title}?`,
+                          goalOptions: learningGoals
+                        }]);
+                      }
+                    }}
+                    style={{ cursor: step === 'aim' ? 'pointer' : 'default' }}
+                  >
                     <div className={`
                       w-8 h-8 rounded-full flex items-center justify-center
                       ${currentStep === step ? 'bg-blue-500 text-white' : 'bg-gray-200'}
+                      ${step === 'aim' ? 'hover:bg-blue-600' : ''}
                     `}>
                       {idx + 1}
                     </div>
@@ -663,15 +706,14 @@ Provide a deeper analysis of its significance and connections to the book's them
                 <input
                   value={inputValue}
                   onChange={(e) => setInputValue(e.target.value)}
-                  placeholder={selectedBook ? "Ask a question..." : "Type a book name..."}
+                  placeholder="Enter a book name or ask questions"
                   className="flex-1 p-2 border rounded-lg"
-                  disabled={!selectedBook} // Disable if no book is selected
                 />
                 <button 
                   type="submit"
-                  disabled={!inputValue.trim() || !selectedBook}
+                  disabled={!inputValue.trim()}
                   className={`p-2 rounded-lg ${
-                    !inputValue.trim() || !selectedBook 
+                    !inputValue.trim()
                       ? 'bg-gray-300 cursor-not-allowed' 
                       : 'bg-blue-500 hover:bg-blue-600 text-white'
                   }`}
