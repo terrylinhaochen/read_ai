@@ -575,6 +575,47 @@ Provide a deeper analysis of its significance and connections to the book's them
     </div>
   );
 
+  // Add handleSubmit function
+  const handleSubmit = async (e) => {
+    e?.preventDefault(); // Handle both button click and form submit
+    
+    if (!inputValue.trim() || !selectedBook) return;
+
+    try {
+      // Add user message and loading state
+      setMessages(prev => [...prev,
+        { type: 'user', content: inputValue },
+        { type: 'assistant', content: 'Thinking...', loading: true }
+      ]);
+
+      const response = await generateBookResponse(selectedBook, inputValue);
+
+      // Replace loading message with response
+      setMessages(prev => [
+        ...prev.slice(0, -1),
+        {
+          type: 'assistant',
+          content: response.content,
+          learningAids: response.learningAids,
+          prefills: response.prefills
+        }
+      ]);
+
+      // Clear input after sending
+      setInputValue('');
+      setDiscussionCount(prev => prev + 1);
+    } catch (error) {
+      console.error('Error:', error);
+      setMessages(prev => [
+        ...prev.slice(0, -1),
+        {
+          type: 'assistant',
+          content: 'I apologize, but I encountered an error. Please try again.',
+        }
+      ]);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-50">
       <header className="bg-white shadow-sm">
@@ -618,17 +659,26 @@ Provide a deeper analysis of its significance and connections to the book's them
             </div>
 
             <div className="p-4 border-t">
-              <div className="flex gap-2">
+              <form onSubmit={handleSubmit} className="flex gap-2">
                 <input
                   value={inputValue}
                   onChange={(e) => setInputValue(e.target.value)}
                   placeholder={selectedBook ? "Ask a question..." : "Type a book name..."}
                   className="flex-1 p-2 border rounded-lg"
+                  disabled={!selectedBook} // Disable if no book is selected
                 />
-                <button className="p-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600">
+                <button 
+                  type="submit"
+                  disabled={!inputValue.trim() || !selectedBook}
+                  className={`p-2 rounded-lg ${
+                    !inputValue.trim() || !selectedBook 
+                      ? 'bg-gray-300 cursor-not-allowed' 
+                      : 'bg-blue-500 hover:bg-blue-600 text-white'
+                  }`}
+                >
                   <Send className="w-5 h-5" />
                 </button>
-              </div>
+              </form>
             </div>
           </div>
         </div>
