@@ -1,9 +1,13 @@
-import React, { useState, useEffect } from 'react';
-import { Book, Send, PlayCircle, PauseCircle, ChevronRight } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { Book, Send, PlayCircle, PauseCircle, ChevronRight, LogOut } from 'lucide-react';
 import { generateBookResponse } from '../services/openai';
 import { LearningAidSection } from './LearningAid';
+import { useAuth } from '../contexts/AuthContext';
+import { createChatInstance, getUserChats, updateChatMessages } from '../services/chatService';
 
 const BookLearningApp = () => {
+  const { user, logout } = useAuth();
+  const messageContainerRef = useRef(null);
   const [selectedBook, setSelectedBook] = useState(null);
   const [currentStep, setCurrentStep] = useState('aim');
   const [messages, setMessages] = useState([]);
@@ -12,7 +16,38 @@ const BookLearningApp = () => {
   const [reflectionNotes, setReflectionNotes] = useState('');
   const [discussionCount, setDiscussionCount] = useState(0);
   const [showTopics, setShowTopics] = useState(false);
+  const [currentChatId, setCurrentChatId] = useState(null);
+  const [userChats, setUserChats] = useState([]);
   
+  // Fetch user's chat history
+  useEffect(() => {
+    const loadUserChats = async () => {
+      if (user) {
+        try {
+          const chats = await getUserChats(user.uid);
+          setUserChats(chats);
+        } catch (error) {
+          console.error('Error loading user chats:', error);
+        }
+      }
+    };
+    loadUserChats();
+  }, [user]);
+
+  // Save messages to Firestore whenever they change
+  useEffect(() => {
+    const saveMessages = async () => {
+      if (currentChatId && messages.length > 0) {
+        try {
+          await updateChatMessages(currentChatId, messages);
+        } catch (error) {
+          console.error('Error saving messages:', error);
+        }
+      }
+    };
+    saveMessages();
+  }, [messages, currentChatId]);
+
   // Learning goals with clear descriptions
   const learningGoals = [
     {
@@ -119,17 +154,32 @@ const BookLearningApp = () => {
     // Add similar structures for other books...
   };
 
-  const handleBookSelect = (book) => {
-    setSelectedBook(book);
-    setCurrentStep('aim');
-    setShowTopics(true);
-    setMessages([
-      {
-        type: 'assistant',
-        content: `What's your goal for reading ${book.title}?`,
-        goalOptions: learningGoals
-      }
-    ]);
+  const handleBookSelect = async (book) => {
+    try {
+      // Create a new chat instance when selecting a book
+      const chatId = await createChatInstance(user.uid, book.id, book.title);
+      setCurrentChatId(chatId);
+      setSelectedBook(book);
+      setCurrentStep('aim');
+      setShowTopics(true);
+      setMessages([
+        {
+          type: 'assistant',
+          content: `What's your goal for reading ${book.title}?`,
+          goalOptions: learningGoals
+        }
+      ]);
+    } catch (error) {
+      console.error('Error creating chat instance:', error);
+    }
+  };
+
+  const handleLogout = async () => {
+    try {
+      await logout();
+    } catch (error) {
+      console.error('Error logging out:', error);
+    }
   };
 
   const handleGoalSelect = (goal) => {
@@ -522,8 +572,45 @@ Provide a deeper analysis of its significance and connections to the book's them
     }
   }, [discussionCount, messages, currentStep]);
 
+  useEffect(() => {
+    if (messageContainerRef.current) {
+      messageContainerRef.current.scrollTop = messageContainerRef.current.scrollHeight;
+    }
+  }, [messages]);
+
   const renderSidebar = () => (
     <div className="w-72 space-y-6">
+      {/* Previous Chats Section */}
+      {userChats.length > 0 && (
+        <div className="bg-white rounded-lg shadow-sm p-4">
+          <h3 className="font-medium text-lg mb-4">Previous Discussions</h3>
+          <div className="space-y-2">
+            {userChats.map(chat => (
+              <button
+                key={chat.id}
+                onClick={() => {
+                  setCurrentChatId(chat.id);
+                  const book = featuredBooks.find(b => b.id === chat.bookId);
+                  if (book) {
+                    setSelectedBook(book);
+                    setMessages(chat.messages);
+                    setShowTopics(true);
+                  }
+                }}
+                className="w-full text-left p-3 rounded-lg text-sm
+                         hover:bg-gray-50 transition-colors
+                         border border-gray-200"
+              >
+                <div className="font-medium">{chat.bookTitle}</div>
+                <div className="text-gray-500 text-xs">
+                  {new Date(chat.updatedAt?.toDate()).toLocaleDateString()}
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Books Section - Collapsible when book selected */}
       <div className={`transition-all duration-300 ${showTopics ? 'mb-4' : 'mb-0'}`}>
         <h2 className="text-lg font-medium mb-4">Books to get you started</h2>
@@ -647,14 +734,58 @@ Provide a deeper analysis of its significance and connections to the book's them
   return (
     <div className="min-h-screen bg-gray-50">
       <header className="bg-white shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 py-4">
+        <div className="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
           <h1 className="text-2xl font-semibold text-gray-900">AI Reading Assistant</h1>
+          <div className="flex items-center gap-4">
+            <span className="text-gray-600">{user.email}</span>
+            <button
+              onClick={handleLogout}
+              className="flex items-center gap-2 text-gray-600 hover:text-gray-900"
+            >
+              <LogOut className="w-5 h-5" />
+              Logout
+            </button>
+          </div>
         </div>
       </header>
 
       <main className="max-w-7xl mx-auto px-4 py-6">
         <div className="flex gap-6">
-          {renderSidebar()}
+          <div className="w-72 space-y-6">
+            {/* Previous Chats Section */}
+            {userChats.length > 0 && (
+              <div className="bg-white rounded-lg shadow-sm p-4">
+                <h3 className="font-medium text-lg mb-4">Previous Discussions</h3>
+                <div className="space-y-2">
+                  {userChats.map(chat => (
+                    <button
+                      key={chat.id}
+                      onClick={() => {
+                        setCurrentChatId(chat.id);
+                        const book = featuredBooks.find(b => b.id === chat.bookId);
+                        if (book) {
+                          setSelectedBook(book);
+                          setMessages(chat.messages);
+                          setShowTopics(true);
+                        }
+                      }}
+                      className="w-full text-left p-3 rounded-lg text-sm
+                               hover:bg-gray-50 transition-colors
+                               border border-gray-200"
+                    >
+                      <div className="font-medium">{chat.bookTitle}</div>
+                      <div className="text-gray-500 text-xs">
+                        {new Date(chat.updatedAt?.toDate()).toLocaleDateString()}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Books Section */}
+            {renderSidebar()}
+          </div>
 
           {/* Main Content Area */}
           <div className="flex-1 bg-white rounded-lg shadow-sm flex flex-col h-[80vh]">
@@ -693,7 +824,7 @@ Provide a deeper analysis of its significance and connections to the book's them
               </div>
             )}
 
-            <div className="flex-1 overflow-y-auto p-4 space-y-4">
+            <div ref={messageContainerRef} className="flex-1 overflow-y-auto p-4 space-y-4">
               {messages.map((message, idx) => (
                 <div key={idx}>
                   {renderMessage(message)}

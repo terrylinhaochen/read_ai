@@ -1,9 +1,19 @@
+import React from 'react';
+import { AuthProvider, useAuth } from './contexts/AuthContext';
 import BookLearningApp from './components/BookLearningApp';
+import Login from './components/Login';
 
-function App() {
+const AppContent = () => {
+  const { user } = useAuth();
+  return user ? <BookLearningApp /> : <Login />;
+};
+
+const App = () => {
   return (
-    <BookLearningApp />
+    <AuthProvider>
+      <AppContent />
+    </AuthProvider>
   );
-}
+};
 
 export default App;
